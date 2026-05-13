@@ -2,7 +2,7 @@
 
 This technical guide outlines the workflow for compiling the **WebUI3DS** environment into native Nintendo 3DS binaries. This process utilizes the **devkitARM** toolchain to produce hardware-executable files.
 
----
+
 
 ## 1. Prerequisites & Toolchain Setup
 
@@ -20,7 +20,7 @@ pacman -S 3ds-curl 3ds-dev 3ds-libjson-c 3ds-zlib 3ds-bzip2 3ds-libpng
 
 ```
 
----
+
 
 ## 2. Project Architecture
 
@@ -37,7 +37,7 @@ WebUI3DS_Native/
 
 ```
 
----
+
 
 ## 3. Compilation Workflow
 
@@ -71,7 +71,7 @@ make
 
 ```
 
----
+
 
 ## 4. Output Artifacts
 
@@ -83,7 +83,7 @@ Successful compilation will result in the following files in your project root:
 | **.smdh** | Metadata & Icon | Contains name/author info |
 | **.cia** | CTR Importable Archive | Install via FBI to Home Menu |
 
----
+
 
 ## 5. Asset Pipeline Specifications
 
@@ -93,7 +93,7 @@ To maintain the **WebUI3DS** aesthetic on hardware, ensure your branding assets 
 * **Banner:** `banner.png` should be $256 \times 128$ for the top screen display.
 * **Textures:** Use `citra-t3x` (automated via Makefile) for hardware-accelerated UI rendering.
 
----
+
 
 ## 6. Troubleshooting
 
@@ -101,7 +101,7 @@ To maintain the **WebUI3DS** aesthetic on hardware, ensure your branding assets 
 * **Texture Corruption:** Ensure `.png` assets are in a standard RGB/RGBA format before the `Tex3DS` conversion.
 * **Missing Tools:** If `makerom` or `bannertool` are not found, ensure your PATH includes `/opt/devkitpro/tools/bin`.
 
----
+
 
 ## Credits
 
