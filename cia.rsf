@@ -1,0 +1,47 @@
+# Open WebUI 3DS Edition - CIA Resource Settings File
+# Used with: makerom -f cia -desc app:4 -icon icon.png -banner banner.bnr
+
+BasicInfo:
+  Title           : WebUI
+  CompanyCode     : "00"
+  ProductCode     : "CTR-P-WBUI"
+  ContentType     : Application
+  Logo            : Homebrew
+
+RomFs:
+  RootPath        : romfs
+
+TitleInfo:
+  Category        : Application
+  UniqueId        : 0xF9211
+  Version         : 0
+
+Option:
+  UseOnSD         : true
+  FreeProductCode : true
+  MediaFootPadding: false
+  EnableCrypt     : false
+  EnableCompress  : true
+
+SystemControlInfo:
+  SaveDataSize    : 1024K
+  RemasterVersion : 0
+  StackSize       : 0x40000
+
+AccessControlInfo:
+  FileSystemAccess:
+    - DirectSdmc
+
+  ServiceAccessControl:
+    - APT:U
+    - ac:u
+    - cfg:u
+    - fs:USER
+    - gsp::Gpu
+    - hid:USER
+    - http:C
+    - ir:USER
+    - ndm:u
+    - soc:U
+    - ssl:C
+    - y2r:u

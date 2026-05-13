@@ -1,116 +1,79 @@
-#---------------------------------------------------------------------------------
-.SUFFIXES:
-#---------------------------------------------------------------------------------
+# --- Project Settings ---
+TARGET      := WebUI
+APP_TITLE   := WebUI
+APP_DESC    := A WebUI client for the 3DS.
+APP_AUTHOR  := L0nk55
 
-ifeq ($(strip $(DEVKITARM)),)
-$(error "Please set DEVKITARM in your environment. export DEVKITARM=<path to>devkitARM")
-endif
+# --- Paths ---
+DEVKITPRO   := /c/devkitPro
+DEVKITARM   := $(DEVKITPRO)/devkitARM
+LIBCTRU     := $(DEVKITPRO)/libctru
+PORTLIBS    := $(DEVKITPRO)/portlibs/3ds
 
-TOPDIR ?= $(CURDIR)
+# --- Tools ---
+CC          := arm-none-eabi-gcc
+BANNERTOOL  := ./bannertool.exe
+
 include $(DEVKITARM)/3ds_rules
 
-#---------------------------------------------------------------------------------
-TARGET          :=  ollama3ds
-BUILD           :=  build
-SOURCES         :=  source
-DATA            :=  data
-INCLUDES        :=  include
+# --- Files ---
+BANNER_PNG  := Open-WebUI-banner.png
+BANNER_WAV  := jingle.wav
+BANNER_BNR  := banner.bnr
+ICON_PNG    := WebUI-icon.png
+SMDH        := $(TARGET).smdh
+RSF         := cia.rsf
+ROMFS_DIR   := romfs
 
-APP_TITLE       :=  Ollama 3DS
-APP_DESCRIPTION :=  LLM Inference via Ollama
-APP_AUTHOR      :=  Dzhmelyk135
+# --- Compiler Flags ---
+ARCH        := -march=armv6k -mtune=mpcore -mfloat-abi=hard -mtp=soft
+CFLAGS      := -g -Wall -O2 -mword-relocations $(ARCH) -D__3DS__ \
+               -Iinclude -I$(LIBCTRU)/include -I$(PORTLIBS)/include
+LDFLAGS     := -specs=3dsx.specs -g $(ARCH) -Wl,-Map,$(TARGET).map
+LIBPATHS    := -L$(LIBCTRU)/lib -L$(PORTLIBS)/lib
+LIBS        := -lcitro2d -lcitro3d -lcurl -lmbedtls -lmbedx509 -lmbedcrypto -lz -lctru -lm
 
-#---------------------------------------------------------------------------------
-ARCH    :=  -march=armv6k -mtune=mpcore -mfloat-abi=hard -mtp=soft
-
-CFLAGS  :=  -g -Wall -O2 -mword-relocations \
-            -ffunction-sections \
-            $(ARCH) \
-            $(BUILD_CFLAGS)
-
-CFLAGS  +=  $(INCLUDE) -D__3DS__
-
-CXXFLAGS    := $(CFLAGS) -fno-rtti -fno-exceptions -std=gnu++11
-
-ASFLAGS :=  -g $(ARCH)
-LDFLAGS  =  -specs=3dsx.specs -g $(ARCH) -Wl,-Map,$(notdir $*.map)
-
-LIBS    := -lctru -lm
-
-#---------------------------------------------------------------------------------
-LIBDIRS := $(CTRULIB) $(PORTLIBS)
-
-#---------------------------------------------------------------------------------
-ifneq ($(BUILD),$(notdir $(CURDIR)))
-#---------------------------------------------------------------------------------
-
-export OUTPUT   :=  $(CURDIR)/$(TARGET)
-export TOPDIR   :=  $(CURDIR)
-
-export VPATH    :=  $(foreach dir,$(SOURCES),$(CURDIR)/$(dir)) \
-                    $(foreach dir,$(DATA),$(CURDIR)/$(dir))
-
-export DEPSDIR  :=  $(CURDIR)/$(BUILD)
-
-CFILES      :=  $(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.c)))
-CPPFILES    :=  $(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.cpp)))
-SFILES      :=  $(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.s)))
-BINFILES    :=  $(foreach dir,$(DATA),$(notdir $(wildcard $(dir)/*.*)))
-
-ifeq ($(strip $(CPPFILES)),)
-    export LD   :=  $(CC)
-else
-    export LD   :=  $(CXX)
-endif
-
-export OFILES_BIN   :=  $(addsuffix .o,$(BINFILES))
-export OFILES_SRC   :=  $(CPPFILES:.cpp=.o) $(CFILES:.c=.o) $(SFILES:.s=.o)
-export OFILES       :=  $(OFILES_BIN) $(OFILES_SRC)
-export HFILES_BIN   :=  $(addsuffix .h,$(subst .,_,$(BINFILES)))
-
-export INCLUDE  :=  $(foreach dir,$(INCLUDES),-I$(CURDIR)/$(dir)) \
-                    $(foreach dir,$(LIBDIRS),-I$(dir)/include) \
-                    -I$(CURDIR)/$(BUILD)
-
-export LIBPATHS :=  $(foreach dir,$(LIBDIRS),-L$(dir)/lib)
-
-# ── SMDH generato esplicitamente, senza autodetect icona ─────────────────────
-export APP_ICON := $(TOPDIR)/icon.png
-export _3DSXFLAGS += --smdh=$(CURDIR)/$(TARGET).smdh
+# --- Objects ---
+OBJDIR      := build
+SRCDIR      := source
+SOURCES     := $(wildcard $(SRCDIR)/*.c)
+OBJS        := $(patsubst $(SRCDIR)/%.c, $(OBJDIR)/%.o, $(SOURCES))
 
 .PHONY: all clean
 
-all: $(BUILD)
-	@$(MAKE) --no-print-directory -C $(BUILD) -f $(CURDIR)/Makefile
+all: $(TARGET).3dsx $(TARGET).cia
 
-$(BUILD):
-	@mkdir -p $@
+# Ensure build directory exists
+$(OBJDIR):
+	@mkdir -p $(OBJDIR)
 
-# ── Genera SMDH prima del build principale ────────────────────────────────────
-$(CURDIR)/$(TARGET).smdh: $(TOPDIR)/icon.png
-	@echo "Generazione SMDH..."
-	smdhtool --create "$(APP_TITLE)" "$(APP_DESCRIPTION)" "$(APP_AUTHOR)" $(TOPDIR)/icon.png $@
+# Compile
+$(OBJDIR)/%.o: $(SRCDIR)/%.c | $(OBJDIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+# Link
+$(TARGET).elf: $(OBJS)
+	$(CC) $(LDFLAGS) $(OBJS) $(LIBPATHS) $(LIBS) -o $@
+
+# SMDH icon from PNG
+$(SMDH): $(ICON_PNG)
+	smdhtool --create "$(APP_TITLE)" "$(APP_DESC)" "$(APP_AUTHOR)" $(ICON_PNG) $@
+
+# Banner binary from PNG + WAV
+$(BANNER_BNR): $(BANNER_PNG) $(BANNER_WAV)
+	$(BANNERTOOL) makebanner -i $(BANNER_PNG) -a $(BANNER_WAV) -o $@
+
+# Homebrew Launcher version (3dsxtool accepts the directory directly)
+$(TARGET).3dsx: $(TARGET).elf $(SMDH)
+	3dsxtool $(TARGET).elf $@ --smdh=$(SMDH) --romfs=$(ROMFS_DIR)
+
+# CIA version (romfs is packed by makerom via RomFs.RootPath in cia.rsf)
+$(TARGET).cia: $(TARGET).elf $(SMDH) $(BANNER_BNR) $(RSF)
+	makerom -f cia -o $@ -elf $(TARGET).elf -rsf $(RSF) \
+	        -desc app:4 -icon $(SMDH) -banner $(BANNER_BNR) \
+	        -major 0 -minor 0
 
 clean:
-	@echo clean ...
-	@rm -fr $(BUILD) $(TARGET).3dsx $(OUTPUT).smdh $(TARGET).elf
-
-#---------------------------------------------------------------------------------
-else
-#---------------------------------------------------------------------------------
-
-$(OUTPUT).3dsx  :   $(OUTPUT).elf $(_3DSXDEPS)
-
-$(OFILES_SRC)   :   $(HFILES_BIN)
-
-$(OUTPUT).elf   :   $(OFILES)
-
-%.bin.o %_bin.h :   %.bin
-	@echo $(notdir $<)
-	@$(bin2o)
-
--include $(DEPSDIR)/*.d
-
-#---------------------------------------------------------------------------------
-endif
-#---------------------------------------------------------------------------------
+	@rm -rf $(OBJDIR) $(TARGET).elf $(TARGET).3dsx \
+	        $(TARGET).cia $(TARGET).map $(BANNER_BNR) $(SMDH)
+	@echo "Cleanup complete. The workspace is as empty as a developer's coffee mug at 3 AM."
