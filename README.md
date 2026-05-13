@@ -1,418 +1,110 @@
 # WebUI3DS
 
-A Nintendo 3DS-inspired frontend for Open WebUI with custom branding, retro handheld aesthetics, and lightweight performance tweaks.
+This technical guide outlines the workflow for compiling the **WebUI3DS** environment into native Nintendo 3DS binaries. This process utilizes the **devkitARM** toolchain to produce hardware-executable files.
 
+---
 
+## 1. Prerequisites & Toolchain Setup
 
-# Features
+Before attempting a build, your development environment must be configured for ARM cross-compilation.
 
-## Core Features
+### Core Components
+* **devkitPro:** The primary installer and environment manager.
+* **devkitARM:** The GNU compiler collection for ARM (arm-none-eabi).
+* **libctru:** The standard user-mode library for 3DS homebrew.
 
-* Custom branding support
-* Rename Open WebUI to **WebUI3DS**
-* Custom favicon support
-* Lightweight UI optimizations
-* Mobile-friendly interface
-* Retro Nintendo 3DS inspired design
-* Docker deployment support
-* Persistent chat and configuration storage
-* OpenAI API support
-* Ollama local model support
-* Multi-model support
-* Chat history
-* User accounts and authentication
-* Dark mode support
-* Custom themes
-* Fast startup times
-
-
-
-# UI Features
-
-## Nintendo 3DS Inspired Design
-
-* Rounded UI panels
-* Dual-screen inspired layout
-* Retro menu styling
-* Handheld-inspired color palette
-* Compact sidebar design
-* Console-like animations
-* Custom loading screen
-* Custom browser tab title
-* Animated icons
-* Retro-inspired sound support (optional)
-
-
-
-# Customization
-
-## Branding
-
-You can customize:
-
-* Application title
-* Browser tab name
-* Login screen logo
-* Sidebar logo
-* Loading animation
-* Accent colors
-* Wallpapers/backgrounds
-* Custom CSS
-* Favicon
-
-
-
-# Docker Installation
-
-## Quick Start
-
-Pull the latest image:
-
+### Mandatory Dependencies
+Open your **devkitPro MSYS2** terminal and execute the following to install the required libraries:
 ```bash
-docker pull ghcr.io/open-webui/open-webui:main
+pacman -S 3ds-curl 3ds-dev 3ds-libjson-c 3ds-zlib 3ds-bzip2 3ds-libpng
+
 ```
 
-Run the container:
+---
 
-```bash
-docker run -d \
-  -p 3000:8080 \
-  --add-host=host.docker.internal:host-gateway \
-  -v open-webui:/app/backend/data \
-  --name webui3ds \
-  --restart always \
-  ghcr.io/open-webui/open-webui:main
-```
+## 2. Project Architecture
 
-Open your browser:
+The Makefile expects a specific directory structure to resolve source files and assets during the linking phase. Ensure your project is organized as follows:
 
 ```text
-http://localhost:3000
+WebUI3DS_Native/
+├── source/             # C/C++ source files (.c, .cpp)
+├── include/            # Header files (.h, .hpp)
+├── gfx/                # Graphical assets (.png)
+├── data/               # Binary data blobs (fonts, raw audio)
+├── resources/          # App metadata (icon.png, banner.png)
+└── Makefile            # The devkitPro 3DS build script
+
 ```
 
+---
 
+## 3. Compilation Workflow
 
-# Updating Docker Installation
+Follow these steps within the **MSYS2** environment to compile your binaries.
 
-## Standard Update
+### Step 1: Environment Variables
+
+Ensure your shell recognizes the devkitPro paths:
 
 ```bash
-docker rm -f webui3ds
+export DEVKITPRO=/opt/devkitpro
+export DEVKITARM=$DEVKITPRO/devkitARM
 
-docker pull ghcr.io/open-webui/open-webui:main
-
-docker run -d \
-  -p 3000:8080 \
-  --add-host=host.docker.internal:host-gateway \
-  -v open-webui:/app/backend/data \
-  --name webui3ds \
-  --restart always \
-  ghcr.io/open-webui/open-webui:main
 ```
 
-Your chats and settings remain saved in the Docker volume.
+### Step 2: Workspace Cleanup
 
-
-
-# Manual Compilation Guide
-
-## Requirements
-
-Install:
-
-* Git
-* Node.js 20+
-* npm
-* Python 3.11+
-* Docker (optional)
-
-Recommended OS:
-
-* Linux
-* Windows 11
-* macOS
-
-
-
-# Clone the Repository
+Remove previous object files and stale binaries to ensure a clean link:
 
 ```bash
-git clone https://github.com/open-webui/open-webui.git
+make clean
 
-cd open-webui
 ```
 
+### Step 3: Binary Generation
 
-
-# Install Frontend Dependencies
+Run the compiler. This will trigger the asset pipeline (converting PNGs to t3x) and link the source code against libctru:
 
 ```bash
-cd frontend
-npm install
+make
+
 ```
 
+---
 
+## 4. Output Artifacts
 
-# Install Backend Dependencies
+Successful compilation will result in the following files in your project root:
 
-Return to project root:
+| File Extension | Description | Deployment |
+| --- | --- | --- |
+| **.3dsx** | Homebrew Executable | Run via Homebrew Launcher |
+| **.smdh** | Metadata & Icon | Contains name/author info |
+| **.cia** | CTR Importable Archive | Install via FBI to Home Menu |
 
-```bash
-cd ..
-```
+---
 
-Create a virtual environment:
+## 5. Asset Pipeline Specifications
 
-```bash
-python -m venv venv
-```
+To maintain the **WebUI3DS** aesthetic on hardware, ensure your branding assets meet these requirements:
 
-Activate the virtual environment:
+* **Icon:** `icon.png` must be $48 \times 48$.
+* **Banner:** `banner.png` should be $256 \times 128$ for the top screen display.
+* **Textures:** Use `citra-t3x` (automated via Makefile) for hardware-accelerated UI rendering.
 
-## Windows
+---
 
-```bash
-venv\Scripts\activate
-```
+## 6. Troubleshooting
 
-## Linux/macOS
+* **Linker Error (CURL):** If the build fails with `undefined reference to 'curl'`, verify `-lcurl` is present in the `LIBS` section of your Makefile.
+* **Texture Corruption:** Ensure `.png` assets are in a standard RGB/RGBA format before the `Tex3DS` conversion.
+* **Missing Tools:** If `makerom` or `bannertool` are not found, ensure your PATH includes `/opt/devkitpro/tools/bin`.
 
-```bash
-source venv/bin/activate
-```
+---
 
-Install backend dependencies:
+## Credits
 
-```bash
-pip install -r requirements.txt
-```
-
-
-
-# Compiling the Frontend
-
-Navigate to frontend:
-
-```bash
-cd frontend
-```
-
-Build production files:
-
-```bash
-npm run build
-```
-
-Compiled files will appear in:
-
-```text
-frontend/build
-```
-
-
-
-# Running the Backend
-
-Return to the project root:
-
-```bash
-cd ..
-```
-
-Start the backend server:
-
-```bash
-bash start.sh
-```
-
-Or on Windows:
-
-```powershell
-start_windows.bat
-```
-
-
-
-# Accessing WebUI3DS
-
-Open:
-
-```text
-http://localhost:8080
-```
-
-
-
-# Changing the Browser Title
-
-Edit:
-
-```text
-frontend/index.html
-```
-
-Find:
-
-```html
-<title>Open WebUI</title>
-```
-
-Replace with:
-
-```html
-<title>WebUI3DS</title>
-```
-
-Rebuild the frontend:
-
-```bash
-npm run build
-```
-
-
-
-# Changing the Favicon
-
-Replace:
-
-```text
-frontend/static/favicon.png
-```
-
-or:
-
-```text
-frontend/static/favicon.ico
-```
-
-Recommended sizes:
-
-* 64x64
-* 128x128
-* 256x256
-
-Rebuild the frontend afterward:
-
-```bash
-npm run build
-```
-
-
-
-# Applying Custom CSS
-
-Create:
-
-```text
-frontend/src/styles/webui3ds.css
-```
-
-Import it inside:
-
-```text
-frontend/src/app.css
-```
-
-Example:
-
-```css
-body {
-  background: #111827;
-  border-radius: 12px;
-}
-```
-
-
-
-# Recommended Hardware
-
-## Minimum for compiling manually
-
-* Dual-core CPU
-* 4GB RAM
-* Integrated graphics
-
-## Recommended for compiling manually
-
-* Quad-core CPU
-* 8GB+ RAM
-* SSD storage
-* Dedicated GPU for local models
-
-
-
-# Troubleshooting
-
-## Docker Container Will Not Start
-
-Check logs:
-
-```bash
-docker logs webui3ds
-```
-
-
-
-## Frontend Build Fails
-
-Delete node_modules:
-
-```bash
-rm -rf node_modules
-```
-
-Reinstall dependencies:
-
-```bash
-npm install
-```
-
-
-
-## Port Already In Use
-
-Change:
-
-```bash
--p 3000:8080
-```
-
-To another port:
-
-```bash
--p 8081:8080
-```
-
-
-
-# Credits
-
-## Based On
-
-* (Open WebUI)[https://github.com/open-webui] 
-* (Ollama[https://github.com/ollama/ollama]
-* OpenAI APIs
-
-## Inspired By
-
-* Nintendo 3DS
-* (Open WebUI)[https://github.com/open-webui] 
-
-
-
-## Special thanks
-
-* (Open WebUI)[https://github.com/open-webui] 
-* DevkitPro
-
-# License
-
-Follow the original Open WebUI license unless modified otherwise.
-
-
-
-# Future Plans
-
-* Animated banner
-* Gamepad navigation support
-
+* **Toolchain:** devkitPro & devkitARM teams.
+* **SDK:** libctru contributors.
+* **WebUI:** WebUI for making this idea possible.
